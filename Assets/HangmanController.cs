@@ -16,6 +16,9 @@ public class HangmanController : MonoBehaviour
     private string word;
     private int incorrectGuesses, correctGuesses;
 
+    // A dictionary to track created UI buttons by their letter string
+    private Dictionary<string, Button> runtimeButtons = new Dictionary<string, Button>();
+
     // Start is called before the first frame update
     void Start()
     {
@@ -23,13 +26,39 @@ public class HangmanController : MonoBehaviour
         InitialiseGame();
     }
 
+   
+    void Update()
+    {
+        // Check if any key was pressed and if an input string is available
+        if (Input.anyKeyDown && !string.IsNullOrEmpty(Input.inputString))
+        {
+            // Convert physical key press to uppercase (e.g., 'a' becomes "A")
+            string physicalKeyInput = Input.inputString.ToUpper();
+
+           
+            if (runtimeButtons.ContainsKey(physicalKeyInput))
+            {
+                Button targetButton = runtimeButtons[physicalKeyInput];
+
+                if (targetButton.interactable)
+                {
+                   
+                    targetButton.onClick.Invoke();
+                }
+            }
+        }
+    }
+
     private void InitializeButtons()
     {
+        runtimeButtons.Clear(); // Reset the tracking dictionary
+
         for (int i = 65; i <= 90; i++)
         {
             CreateButtons(i);
         }
     }
+
     private void InitialiseGame()
     {
         incorrectGuesses = 0;
@@ -48,16 +77,30 @@ public class HangmanController : MonoBehaviour
         }
 
         word = generateWord().ToUpper();
-        foreach(char letter in word)
+        foreach (char letter in word)
         {
             var temp = Instantiate(letterContainer, wordContainer.transform);
         }
     }
+
     private void CreateButtons(int i)
     {
+        string letterStr = ((char)i).ToString(); 
+
         GameObject temp = Instantiate(letterButton, keyboardContainer.transform);
-        temp.GetComponentInChildren<TextMeshProUGUI>().text = ((char)i).ToString();
-        temp.GetComponent<Button>().onClick.AddListener(delegate { CheckLetter(((char)i).ToString()); });
+        temp.name = letterStr; // Rename the GameObject
+        temp.GetComponentInChildren<TextMeshProUGUI>().text = letterStr;
+
+        Button btnComponent = temp.GetComponent<Button>();
+
+       
+        btnComponent.onClick.AddListener(delegate {
+            btnComponent.interactable = false; 
+            CheckLetter(letterStr);
+        });
+
+      
+        runtimeButtons.Add(letterStr, btnComponent);
     }
 
     private string generateWord()
@@ -89,7 +132,7 @@ public class HangmanController : MonoBehaviour
 
     private void CheckOutcome()
     {
-        if(correctGuesses == word.Length)
+        if (correctGuesses == word.Length)
         {
             for (int i = 0; i < word.Length; i++)
             {
@@ -98,7 +141,7 @@ public class HangmanController : MonoBehaviour
             Invoke("InitialiseGame", 3f);
         }
 
-        if(incorrectGuesses == hangmanStages.Length)
+        if (incorrectGuesses == hangmanStages.Length)
         {
             for (int i = 0; i < word.Length; i++)
             {
@@ -109,3 +152,4 @@ public class HangmanController : MonoBehaviour
         }
     }
 }
+
