@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -16,10 +17,36 @@ public class HangmanController : MonoBehaviour
     private int incorrectGuesses, correctGuesses;
     private int totalLettersToGuess;
 
+    // Dictionary to map uppercase letter strings to their UI Button components
+    private Dictionary<string, Button> runtimeButtons = new Dictionary<string, Button>();
+
     void Start()
     {
         InitializeButtons();
         InitialiseGame();
+    }
+
+    // Listens for physical keyboard entries every frame
+    void Update()
+    {
+        // Check if any key was pressed down and a character exists
+        if (Input.anyKeyDown && !string.IsNullOrEmpty(Input.inputString))
+        {
+            // Convert physical key press to uppercase to match the virtual keyboard buttons
+            string physicalKeyInput = Input.inputString.ToUpper();
+
+            // If the typed letter exists in our dictionary and the button is still interactable (not guessed yet)
+            if (runtimeButtons.ContainsKey(physicalKeyInput))
+            {
+                Button targetButton = runtimeButtons[physicalKeyInput];
+
+                if (targetButton.interactable)
+                {
+                    // Mechanically trigger the button click logic
+                    targetButton.onClick.Invoke();
+                }
+            }
+        }
     }
 
     private bool IsGuessableChar(char c)
@@ -29,6 +56,8 @@ public class HangmanController : MonoBehaviour
 
     private void InitializeButtons()
     {
+        runtimeButtons.Clear(); // Clear dictionary safety check before rebuilding
+
         for (int i = 65; i <= 90; i++)
         {
             CreateButtons(i);
@@ -92,9 +121,22 @@ public class HangmanController : MonoBehaviour
 
     private void CreateButtons(int i)
     {
+        string letterStr = ((char)i).ToString(); 
+
         GameObject temp = Instantiate(letterButton, keyboardContainer.transform);
-        temp.GetComponentInChildren<TextMeshProUGUI>().text = ((char)i).ToString();
-        temp.GetComponent<Button>().onClick.AddListener(delegate { CheckLetter(((char)i).ToString()); });
+        temp.name = letterStr; // Rename GameObject for clarity in Hierarchy
+        temp.GetComponentInChildren<TextMeshProUGUI>().text = letterStr;
+
+        Button btnComponent = temp.GetComponent<Button>();
+
+        // When clicked (via mouse OR physical key), lock the button out and check letter rules
+        btnComponent.onClick.AddListener(delegate {
+            btnComponent.interactable = false; // Grays out the button automatically
+            CheckLetter(letterStr);
+        });
+
+        // Add this runtime button into our quick-lookup mapping tracking
+        runtimeButtons.Add(letterStr, btnComponent);
     }
 
     private string generateWord()
