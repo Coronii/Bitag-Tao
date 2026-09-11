@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -15,11 +14,10 @@ public class HangmanController : MonoBehaviour
 
     private string word;
     private int incorrectGuesses, correctGuesses;
+    private int totalLettersToGuess;
 
     // A dictionary to track created UI buttons by their letter string
     private Dictionary<string, Button> runtimeButtons = new Dictionary<string, Button>();
-
-    // Start is called before the first frame update
     void Start()
     {
         InitializeButtons();
@@ -63,14 +61,18 @@ public class HangmanController : MonoBehaviour
     {
         incorrectGuesses = 0;
         correctGuesses = 0;
+        totalLettersToGuess = 0;
+
         foreach (Button child in keyboardContainer.GetComponentsInChildren<Button>())
         {
             child.interactable = true;
         }
+
         foreach (Transform child in wordContainer.GetComponentInChildren<Transform>())
         {
             Destroy(child.gameObject);
         }
+
         foreach (GameObject stage in hangmanStages)
         {
             stage.SetActive(false);
@@ -80,6 +82,24 @@ public class HangmanController : MonoBehaviour
         foreach (char letter in word)
         {
             var temp = Instantiate(letterContainer, wordContainer.transform);
+            TextMeshProUGUI textComponent = temp.GetComponentInChildren<TextMeshProUGUI>();
+            Transform underline = temp.transform.Find("Underline");
+
+            if (IsGuessableChar(letter))
+            {
+                // Guessable letter - show as underscore
+                textComponent.text = " ";
+                if (underline != null)
+                    underline.gameObject.SetActive(true);
+            }
+            else
+            {
+                // Auto-revealed - show immediately
+                textComponent.text = letter.ToString();
+                textComponent.color = Color.white;
+                if (underline != null)
+                    underline.gameObject.SetActive(false);
+            }
         }
     }
 
@@ -105,9 +125,17 @@ public class HangmanController : MonoBehaviour
 
     private string generateWord()
     {
-        string[] wordList = possibleWord.text.Split("\n");
-        string line = wordList[Random.Range(0, wordList.Length - 1)];
-        return line.Substring(0, line.Length - 1);
+        string[] wordList = possibleWord.text.Split('\n');
+        string line;
+        int attempts = 0;
+
+        do
+        {
+            line = wordList[Random.Range(0, wordList.Length)].Trim();
+            attempts++;
+        } while (string.IsNullOrEmpty(line) && attempts < wordList.Length * 2);
+
+        return line;
     }
 
     private void CheckLetter(string inputLetter)
@@ -122,11 +150,14 @@ public class HangmanController : MonoBehaviour
                 wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i].text = inputLetter;
             }
         }
-        if (letterInWord == false)
+
+        if (!letterInWord)
         {
             incorrectGuesses++;
-            hangmanStages[incorrectGuesses - 1].SetActive(true);
+            if (incorrectGuesses <= hangmanStages.Length)
+                hangmanStages[incorrectGuesses - 1].SetActive(true);
         }
+
         CheckOutcome();
     }
 
@@ -134,19 +165,25 @@ public class HangmanController : MonoBehaviour
     {
         if (correctGuesses == word.Length)
         {
+            // Word won
             for (int i = 0; i < word.Length; i++)
             {
-                wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i].color = Color.green;
+                if (IsGuessableChar(word[i]))
+                    wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i].color = Color.green;
             }
             Invoke("InitialiseGame", 3f);
         }
 
         if (incorrectGuesses == hangmanStages.Length)
         {
+            // Word lost - reveal all letters
             for (int i = 0; i < word.Length; i++)
             {
-                wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i].color = Color.red;
-                wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i].text = word[i].ToString();
+                TextMeshProUGUI textComponent = wordContainer.GetComponentsInChildren<TextMeshProUGUI>()[i];
+                textComponent.text = word[i].ToString();
+
+                if (IsGuessableChar(word[i]))
+                    textComponent.color = Color.red;
             }
             Invoke("InitialiseGame", 3f);
         }
